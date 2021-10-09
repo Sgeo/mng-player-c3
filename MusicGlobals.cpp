@@ -15,7 +15,7 @@
 #endif
 
 #include "MusicGlobals.h"
-#include "../../common/C2eTypes.h"
+#include "C2eTypes.h"
 #include "Soundlib.h"
 
 SoundManager *theMusicSoundManager = NULL;

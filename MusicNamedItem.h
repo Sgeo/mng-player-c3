@@ -23,11 +23,12 @@
 #pragma warning(disable:4786 4503)
 #endif
 
-#include "../PersistentObject.h"
 #include <string>
 
+#include "C2eTypes.h"
 
-class MusicNamedItem : public PersistentObject
+
+class MusicNamedItem
 	{
 	public:
 		// ----------------------------------------------------------------------
@@ -71,7 +72,7 @@ class MusicNamedItem : public PersistentObject
 		bool MatchName(LPCTSTR compare) const
 		{
 // standard gnu c lib has strcasecmp not stricmp...
-#ifdef __GLIBC__
+#if defined(__GLIBC__) || defined(__EMSCRIPTEN__)
 			return (strcasecmp(name.data(), compare) == 0); 
 #else
 			return (stricmp(name.data(), compare) == 0); 

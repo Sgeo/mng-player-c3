@@ -2,8 +2,7 @@
 #pragma warning(disable:4786 4503)
 #endif
 
-#include "../../../common/C2eTypes.h"
-#include "../MidiModule.h"
+#include "../C2eTypes.h"
 #include "stub_Soundlib.h"
 //#include "../General.h"
 //#include "../App.h"
@@ -16,7 +15,6 @@
 #pragma warning (disable:4786 4503)
 #endif
 
-CREATURES_IMPLEMENT_SERIAL( SoundManager)
 
 void SoundManager::SetMNGFile(std::string& mng)
 {}
@@ -94,10 +92,4 @@ void SoundManager::SetVolumeOnMidiPlayer(int32 volume)
 void SoundManager::MuteMidiPlayer(bool mute)
 { }
 
-// these two are private.
-bool SoundManager::Write(CreaturesArchive &archive) const
-{ return false; }
-
-bool SoundManager::Read(CreaturesArchive &archive)
-{ return false; }
 

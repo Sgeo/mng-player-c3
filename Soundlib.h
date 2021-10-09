@@ -15,7 +15,9 @@
 #include <dsound.h>
 
 #include <set>
-#include "../PersistentObject.h"
+
+#include "BasicException.h"
+#include "C2eTypes.h"
 
 
 #define MAX_ACTIVE_SOUNDS	32
@@ -34,9 +36,9 @@ typedef int SOUNDHANDLE;
 const int SoundMinVolume = -5000;
 
 // CachedSound - Data structure storing members of sound cache
-class CachedSound : public PersistentObject
+class CachedSound
 {
-	CREATURES_DECLARE_SERIAL( CachedSound )
+
 public:
 	DWORD name;						// Four letter name tag
 	int used;						// Number indicating recent use
@@ -44,23 +46,7 @@ public:
 	int copies;						// Number of active copies
 	IDirectSoundBuffer *buffer;		// Store of sound data
 
-	// ----------------------------------------------------------------------
-	// Method:		Write
-	// Arguments:	archive - archive being written to
-	// Returns:		true if successful
-	// Description:	Overridable function - writes details to archive,
-	//				taking serialisation into account
-	// ----------------------------------------------------------------------
-	virtual bool Write(CreaturesArchive &archive) const;
 
-
-	// ----------------------------------------------------------------------
-	// Method:		Read
-	// Arguments:	archive - archive being read from
-	// Returns:		true if successful
-	// Description:	Overridable function - reads detail of class from archive
-	// ----------------------------------------------------------------------
-	virtual bool Read(CreaturesArchive &archive);
 
 	CachedSound();
 	~CachedSound();
@@ -93,9 +79,9 @@ public:
 // A SoundQueue is maintained to allow a delay before a sound
 // is played.  This enables compound sounds to be created from
 // several separate components.
-class SoundQueueItem : public PersistentObject
+class SoundQueueItem
 {
-		CREATURES_DECLARE_SERIAL( SoundQueueItem )
+
 public:
 	DWORD		wave;			// Name of sound to be played
 	int			ticks;			// Number of ticks remaining
@@ -121,12 +107,8 @@ public:
 // Additionally, effects may be delayed by a number of ticks.
 // Delayed sounds are placed on a queue maintained by the manager.
 
-// to play midi sounds
-class MidiModule;
 
-class SoundManager :  public PersistentObject
-{
-	CREATURES_DECLARE_SERIAL( SoundManager )
+class SoundManager
 public:
 	//////////////////////////////////////////////////////////////////////////
 	// Exceptions
@@ -211,14 +193,6 @@ public:
 	BOOL FinishedControlledSound(SOUNDHANDLE handle);
 											//  Has the selected sound finished playing?
 
-	bool PlayMidiFile(std::string& fileName);
-
-	void StopMidiPlayer();
-
-	void SetVolumeOnMidiPlayer(int32 volume);
-
-	void MuteMidiPlayer(bool mute);
-
 	void SetMNGFile(std::string& mng);
 
 	bool IsMixerFaded() { return faded; }
@@ -252,25 +226,9 @@ private:
 												//  given volume
 
 		// ----------------------------------------------------------------------
-	// Method:		Write
-	// Arguments:	archive - archive being written to
-	// Returns:		true if successful
-	// Description:	Overridable function - writes details to archive,
-	//				taking serialisation into account
-	// ----------------------------------------------------------------------
-	virtual bool Write(CreaturesArchive &archive) const;
 
-
-	// ----------------------------------------------------------------------
-	// Method:		Read
-	// Arguments:	archive - archive being read from
-	// Returns:		true if successful
-	// Description:	Overridable function - reads detail of class from archive
-	// ----------------------------------------------------------------------
-	virtual bool Read(CreaturesArchive &archive);
 
 	// members
-	MidiModule* myMidiModule;
 			
 	BOOL	mixer_suspended;					//  Mixer currently out of operation
 

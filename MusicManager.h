@@ -33,9 +33,8 @@
 #endif
 
 #include "MusicTypes.h"
-#include "../../common/C2eTypes.h"
+#include "C2eTypes.h"
 #include "MusicUpdatable.h"
-#include "../PersistentObject.h"
 #include <string>
 #include <vector>
 
@@ -51,7 +50,7 @@ class MusicManager : public MusicUpdatable
 	// Simple state needs to be serialised (current track playing, volume,
 	// mood, threat
 	// ----------------------------------------------------------------------
-	CREATURES_DECLARE_SERIAL( MusicManager )
+
 	public:
 		
 
@@ -271,23 +270,7 @@ class MusicManager : public MusicUpdatable
 
 
 
-	// ----------------------------------------------------------------------
-	// Method:		Write
-	// Arguments:	archive - archive being written to
-	// Returns:		true if successful
-	// Description:	Overridable function - writes details to archive,
-	//				taking serialisation into account
-	// ----------------------------------------------------------------------
-	virtual bool Write(CreaturesArchive &archive) const;
 
-
-	// ----------------------------------------------------------------------
-	// Method:		Read
-	// Arguments:	archive - archive being read from
-	// Returns:		true if successful
-	// Description:	Overridable function - reads detail of class from archive
-	// ----------------------------------------------------------------------
-	virtual bool Read(CreaturesArchive &archive);
 
 
 

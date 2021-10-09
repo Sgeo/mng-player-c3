@@ -37,7 +37,7 @@
 #include "MusicTypes.h"
 #include "MusicErrors.h"
 #include <string>
-#include "../../common/C2eTypes.h"
+#include "C2eTypes.h"
 
 class MusicScript
 	{

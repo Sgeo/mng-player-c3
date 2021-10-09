@@ -32,19 +32,13 @@
 #include "MusicLayer.h"
 #include "MusicTrack.h"
 #include "MusicScript.h"
-#include "MusicTimer.h"
 #include "MusicGlobals.h"
-#include "../Scramble.h"
+#include "Scramble.h"
 #include "Soundlib.h"
-#include "../Display/ErrorMessageHandler.h"
-#include "../App.h"
-#include "../File.h"
+#include "File.h"
 
-// ----------------------------------------------------------------------
-// Simple state needs to be serialised (current track playing, volume,
-// mood, threat
-// ----------------------------------------------------------------------
-CREATURES_IMPLEMENT_SERIAL( MusicManager)
+#include <iostream>
+
 
 // ----------------------------------------------------------------------
 // Method:		MusicManager
@@ -150,8 +144,7 @@ bool MusicManager::LoadScrambled()
 	File file;
 	try
 	{
-		char buf[_MAX_PATH];
-		theApp.GetDirectory(SOUNDS_DIR,buf);
+		char buf[_MAX_PATH] = "/home/web_user/music/";
 
 		std::string path(buf);
 		path+=currentMNG;
@@ -161,7 +154,8 @@ bool MusicManager::LoadScrambled()
 	catch(File::FileException& e)
 	{
 
-	ErrorMessageHandler::Show(e, "MusicManager::LoadScrambled");
+	//ErrorMessageHandler::Show(e, "MusicManager::LoadScrambled");
+	std::cerr << "MusicManager::LoadScrambled\n";
 	return false;
 	}
 
@@ -193,7 +187,7 @@ bool MusicManager::LoadScrambled()
 	bool success = Load(scrambled) == NULL;
 
 	// delete the script
-	delete scrambled;
+	delete[] scrambled;
 
 	return success;
 
@@ -1181,71 +1175,3 @@ LPCTSTR MusicManager::GetCurrentTrackName()
 		}
 	}
 
-
-#include "../General.h"
-
-// ----------------------------------------------------------------------
-// Method:		Write
-// Arguments:	archive - archive being written to
-// Returns:		true if successful
-// Description:	Overridable function - writes details to archive,
-//				taking serialisation into account
-// ----------------------------------------------------------------------
-bool MusicManager::Write(CreaturesArchive &archive) const
-	{
-	// Verision info:
-	archive << (DWORD) 1;
-
-	// Store the name of the currently active track (if any)
-	std::string trackName;
-	if (currentTrack)
-		{
-		trackName = currentTrack -> GetName();
-		}
-	else
-		{
-		// Nothing to play
-		trackName = "Silence";
-		}
-
-    archive << trackName;
-
-	// Only store basic state, otherwise we'd start off with tracks
-	// still fading, or being halfway through playing
-	archive << volume << targetMood << targetThreat;
-	
-	return true;
-	}
-
-// ----------------------------------------------------------------------
-// Method:		Read
-// Arguments:	archive - archive being read from
-// Returns:		true if successful
-// Description:	Overridable function - reads detail of class from archive
-// ----------------------------------------------------------------------
-bool MusicManager::Read(CreaturesArchive &archive)
-	{
-	// Check version info
-	DWORD version;
-	archive >> version;
-	if ( version == 1 )
-		{
-		// Read the name of the active track (if any) when stored
-		std::string trackName;
-        archive >> trackName;
-
-		// Now read in the remaining basic state
-		archive >> volume >> targetMood >> targetThreat;
-
-		// Now start the last track playing, fading the previous track
-		// out quickly
-		InteruptTrack(trackName.data());
-
-		return true;
-		}
-	else
-		{
-		return false;
-		}
-
-	}

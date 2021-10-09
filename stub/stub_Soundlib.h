@@ -4,7 +4,9 @@
 // Stub version of soundlib
 // NOTE: SERIALISATION WON'T BE COMPATIBLE WITH NON-STUB VERSIONS!
 
-#include "../../PersistentObject.h"
+#include "../BasicException.h"
+#include "../mfchack.h"
+
 
 #define MAX_ACTIVE_SOUNDS	32
 
@@ -38,9 +40,8 @@ const int SoundMinVolume = -5000;
 // Delayed sounds are placed on a queue maintained by the manager.
 
 
-class SoundManager :  public PersistentObject
+class SoundManager
 {
-	CREATURES_DECLARE_SERIAL( SoundManager )
 public:
 	//////////////////////////////////////////////////////////////////////////
 	// Exceptions
@@ -139,8 +140,6 @@ public:
 
 private:
 
-	virtual bool Write( CreaturesArchive& archive ) const;
-	virtual bool Read( CreaturesArchive& archive );
 
 };
 

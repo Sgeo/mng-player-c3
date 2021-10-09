@@ -2,25 +2,17 @@
 #pragma warning(disable:4786 4503)
 #endif
 
-#include "../../common/C2eTypes.h"
-#include "MidiModule.h"
+#include "C2eTypes.h"
 #include "soundlib.h"
-#include "../general.h"
-#include "../App.h"
-#include "../C2eServices.h"
+//#include "../general.h"
+//#include "../C2eServices.h"
 #include "../File.h"
-#include "../Display/ErrorMessageHandler.h"
 
 
 #ifdef _MSC_VER
 #pragma warning (disable:4786 4503)
 #endif
 
-CREATURES_IMPLEMENT_SERIAL( SoundManager)
-
-CREATURES_IMPLEMENT_SERIAL( SoundQueueItem)
-
-CREATURES_IMPLEMENT_SERIAL( CachedSound)
 
 
 
@@ -98,7 +90,6 @@ SoundManager::SoundManager() :
 	overall_volume(0),
 	target_volume(0),
 	current_volume(0),
-	myMidiModule(0),
 	faded(false)
 {
 
@@ -224,23 +215,12 @@ SoundManager::SoundManager() :
 
 	mixer_suspended=FALSE;
 
-	// only start up the midi if we play midi
-	// but do start it up now before
-	if(theApp.DoYouOnlyPlayMidiMusic())
-	{
-		if(!myMidiModule)
-		{
-			myMidiModule = new MidiModule(pDSObject,theApp.GetMainHWND());
-		
-		}
-	}
+
 
 }
 
 SoundManager::~SoundManager()
 {
-		if(myMidiModule)
-			delete myMidiModule;
 
 	if (!sound_initialised)
 	{
@@ -1446,66 +1426,3 @@ SOUNDERROR SoundManager::FadeIn()
 	}
 
 
-bool SoundManager::PlayMidiFile(std::string& fileName)
-{
-	if(!pDSObject)
-		return false;
-
-	static bool volumeSet = false;
-
-	// choose different options for NT
-	OSVERSIONINFO info;
-	info.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-	::GetVersionEx(&info);
-
-	if (info.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS) 
-	{
-		
-
-		if(!myMidiModule)
-		{
-			myMidiModule = new MidiModule(pDSObject,theApp.GetMainHWND());
-		}
-	
-		if(myMidiModule)
-			return myMidiModule->PlayMidiFile(fileName);
-	}
-
-
-
-	return false;
-}
-
-void SoundManager::StopMidiPlayer()
-{
-	if(myMidiModule)
-	{
-		myMidiModule->StopPlaying();
-	}
-}
-
-void SoundManager::SetVolumeOnMidiPlayer(int32 volume)
-{
-	if(myMidiModule)
-	{
-		myMidiModule->SetVolume(volume);
-	}
-}
-
-void SoundManager::MuteMidiPlayer(bool mute)
-{
-	if(myMidiModule)
-	{
-		myMidiModule->Mute(mute);
-	}
-}
-
-bool SoundManager::Write(CreaturesArchive &archive) const
-{
-	return false;
-}
-
-bool SoundManager::Read(CreaturesArchive &archive)
-{
-	return false;
-}

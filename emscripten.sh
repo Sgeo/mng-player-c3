@@ -1,0 +1,1 @@
+emcc *.cpp -o mngplayer.js

@@ -38,17 +38,21 @@
 #include "MusicAction.h"
 #include "MusicGlobals.h"
 #include "Soundlib.h"
-#include "../Display/ErrorMessageHandler.h"
-#include "../File.h"
-#include "../App.h"
+#include "File.h"
+//#include "../App.h"
 
-#include "../Scramble.h"
+#include "Scramble.h"
 
-#include "../Map/Map.h" // For Map::FastFloatToInteger
+// #include "../Map/Map.h" // For Map::FastFloatToInteger
+
+	static inline int FastFloatToInteger(float f) 
+	{
+		return (int)f;
+	}
 
 #include <limits.h>
 #include <list>
-
+#include <iostream>
 
 // ----------------------------------------------------------------------
 // Effects
@@ -870,8 +874,7 @@ void MusicLayer::Munge(LPCTSTR name, LPCTSTR script)
 		munged.Write(&currentStart,sizeof(int));
 
 		// Create the full pathname
-		char buf[_MAX_PATH];
-		theApp.GetDirectory(SOUNDS_DIR,buf);
+		char buf[_MAX_PATH] = "/home/web_user/music/";
 		std::string mungeName(buf);
 
 		mungeName += (*(waves.begin() + i))->GetName();
@@ -891,10 +894,11 @@ void MusicLayer::Munge(LPCTSTR name, LPCTSTR script)
 		}
 		catch(File::FileException&)
 		{
-			ErrorMessageHandler::Show("sound_error", 1, "MidiModule::Munge", mungeName.c_str());
+			//ErrorMessageHandler::Show("sound_error", 1, "MidiModule::Munge", mungeName.c_str());
+			std::cerr << "sound_error\n" << "MidiModule::Munge" << mungeName << "\n";
 	
 			// Get rid of the scrambled version of the script
-			delete scrambled;
+			delete[] scrambled;
 			return;
 		}
 	}
@@ -907,8 +911,7 @@ void MusicLayer::Munge(LPCTSTR name, LPCTSTR script)
 	{
 		// Create the full pathname
 		// Create the full pathname
-		char buf[_MAX_PATH];
-		theApp.GetDirectory(SOUNDS_DIR,buf);
+		char buf[_MAX_PATH] = "/home/web_user/music/";
 		std::string mungeName(buf);
 
 		mungeName += (*(waves.begin() + i))->GetName();
@@ -928,23 +931,25 @@ void MusicLayer::Munge(LPCTSTR name, LPCTSTR script)
 			char *data = new char[fileSize];
 			mungette.Read(data,fileSize);
 			munged.Write(data,fileSize);
-			delete data;
+			delete[] data;
 			
 	
 		}
 		catch(File::FileException&)
 		{		
-			ErrorMessageHandler::Show("sound_error", 1, "MidiModule::Munge", mungeName.c_str());
+			//ErrorMessageHandler::Show("sound_error", 1, "MidiModule::Munge", mungeName.c_str());
+
+			std::cerr << "sound_error\n" << "MidiModule::Munge " << mungeName;
 
 			// Get rid of the scrambled version of the script
-			delete scrambled;
+			delete[] scrambled;
 
 		}
 		
 	}
 
 	// Get rid of the scrambled version of the script
-	delete scrambled;
+	delete[] scrambled;
 
 	}
 
@@ -991,7 +996,7 @@ MusicLayer::ControlledSound::~ControlledSound()
 // ----------------------------------------------------------------------
 long MusicLayer::ConvertVolume(MusicValue vol)
 	{
-	long converted = SoundMinVolume - Map::FastFloatToInteger((sqrt(vol) * (MusicValue) SoundMinVolume));
+	long converted = SoundMinVolume - FastFloatToInteger((sqrt(vol) * (MusicValue) SoundMinVolume));
 
 	// Fix the volume to be within sensible bounds
 	if (converted < SoundMinVolume)
@@ -1017,7 +1022,7 @@ long MusicLayer::ConvertVolume(MusicValue vol)
 // ----------------------------------------------------------------------
 long MusicLayer::ConvertPan(MusicValue pan)
 {
-	long converted = Map::FastFloatToInteger(pan * 10000.0);
+	long converted = FastFloatToInteger(pan * 10000.0);
 
 	// Fix the panning to be within sensible bounds
 	if (converted < -10000)
