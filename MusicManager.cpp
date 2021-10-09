@@ -156,6 +156,7 @@ bool MusicManager::LoadScrambled()
 
 	//ErrorMessageHandler::Show(e, "MusicManager::LoadScrambled");
 	std::cerr << "MusicManager::LoadScrambled\n";
+	std::cerr << e.what() << "\n";
 	return false;
 	}
 

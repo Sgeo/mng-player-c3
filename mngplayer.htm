@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>MNG Player Playground</title>
+        <script>
+        window.Module = {
+            preRun() {
+                FS.createPreloadedFile(FS.mkdir("/home/web_user/music/"), "music.mng", "Music.mng", true, false);
+            }
+        };
+        </script>
+        <script src="mngplayer.js"></script>
+    </head>
+    <body>
+
+    </body>
+</html>
