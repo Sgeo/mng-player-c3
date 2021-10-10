@@ -27,14 +27,12 @@ WebAudioBuffer::WebAudioBuffer(char *bytes, DWORD numBytes) {
 		let audioBufferPromise = $0 ? SoundlibWebAudio.audioContext.decodeAudioData(Module.HEAPU8.slice($0, $0+$1).buffer) : Promise.resolve(null);
 		let gainNode = new GainNode(SoundlibWebAudio.audioContext);
 		//let panNode = new StereoPannerNode(SoundlibWebAudio.audioContext);
-		let splitter = new ChannelSplitterNode(SoundlibWebAudio.audioContext, {numberOfChannels: 2});
-		let merger = new ChannelMergerNode(SoundlibWebAudio.audioContext, {numberOfInputs: 2});
+		let merger = SoundlibWebAudio.audioContext.createChannelMerger(2);
 		let leftGainNode = new GainNode(SoundlibWebAudio.audioContext);
 		let rightGainNode = new GainNode(SoundlibWebAudio.audioContext);
 
-		gainNode.connect(splitter);
-		splitter.connect(leftGainNode, 0);
-		splitter.connect(rightGainNode, 1);
+		gainNode.connect(leftGainNode);
+		gainNode.connect(rightGainNode);
 		leftGainNode.connect(merger, 0, 0);
 		rightGainNode.connect(merger, 0, 1);
 		merger.connect(SoundlibWebAudio.audioContext.destination);
