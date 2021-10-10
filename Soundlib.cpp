@@ -21,7 +21,10 @@
 #include <emscripten.h>
 WebAudioBuffer::WebAudioBuffer(char *bytes, DWORD numBytes) {
 	this->index = EM_ASM_INT({
-		let index = Module.SoundlibWebAudio.buffers.length;
+		let index = Module.SoundlibWebAudio.buffers.findIndex(elem => elem === null);
+		if(index === -1) {
+			index = Module.SoundlibWebAudio.buffers.length;
+		}
 		let audioBufferPromise = $0 ? Module.SoundlibWebAudio.audioContext.decodeAudioData(Module.HEAPU8.slice($0, $0+$1).buffer) : Promise.resolve(null);
 		let gainNode = new GainNode(Module.SoundlibWebAudio.audioContext);
 		//let panNode = new StereoPannerNode(Module.SoundlibWebAudio.audioContext);
@@ -35,7 +38,7 @@ WebAudioBuffer::WebAudioBuffer(char *bytes, DWORD numBytes) {
 		rightGainNode.connect(merger, 0, 1);
 		merger.connect(Module.SoundlibWebAudio.audioContext.destination);
 		
-		Module.SoundlibWebAudio.buffers.push({
+		Module.SoundlibWebAudio.buffers[index] = ({
 			audioBufferPromise: audioBufferPromise,
 			audioBufferNode: null,
 			gainNode: gainNode,
@@ -126,8 +129,16 @@ bool WebAudioBuffer::IsPlaying() {
 	}, this->index) != 0;
 }
 
+uint32_t WebAudioBuffer::Release() {
+	EM_ASM({
+		Module.SoundlibWebAudio.buffers[$0] = null;
+	}, this->index);
+	return 0;
+}
+
 WebAudioBuffer::~WebAudioBuffer() {
 	// TODO: Does anything need to be done here?
+	std::cerr << "Destructor called!" << "\n";
 }
 
 

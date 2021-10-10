@@ -44,7 +44,7 @@ class WebAudioBuffer {
 		WebAudioBuffer *Duplicate();
 		bool IsPlaying();
 
-		uint32_t Release() {return 0;};
+		uint32_t Release();
 
 		WebAudioBuffer(char *, DWORD);
 		~WebAudioBuffer();
