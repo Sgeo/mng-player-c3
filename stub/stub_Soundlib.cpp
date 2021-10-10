@@ -19,8 +19,9 @@
 void SoundManager::SetMNGFile(std::string& mng)
 {}
 
-SoundManager::SoundManager()
-{}
+SoundManager::SoundManager() : audioContext(emscripten::val::undefined()) {
+	audioContext = emscripten::val::global("AudioContext").new_();
+}
 
 SoundManager::~SoundManager()
 {}

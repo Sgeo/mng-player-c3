@@ -7,6 +7,8 @@
 #include "../BasicException.h"
 #include "../mfchack.h"
 
+#include <emscripten/val.h>
+
 
 #define MAX_ACTIVE_SOUNDS	32
 
@@ -139,7 +141,7 @@ public:
 	bool IsMixerFaded();
 
 private:
-
+	emscripten::val audioContext;
 
 };
 

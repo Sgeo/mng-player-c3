@@ -1,1 +1,1 @@
-emcc --bind -s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE="\$Browser" -s NO_DISABLE_EXCEPTION_CATCHING -s ALLOW_MEMORY_GROWTH=1 *.cpp stub/stub_Soundlib.cpp -o mngplayer.js
+emcc --bind -s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE="\$Browser" -s NO_DISABLE_EXCEPTION_CATCHING -s ALLOW_MEMORY_GROWTH=1 *.cpp *.c -o mngplayer.js

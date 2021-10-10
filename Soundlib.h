@@ -1,6 +1,6 @@
-#ifndef _WIN32
-#include "stub/stub_Soundlib.h"
-#else
+//#ifndef _WIN32
+//#include "stub/stub_Soundlib.h"
+//#else
 // directsound version follows:
 
 
@@ -11,13 +11,13 @@
 #ifndef _SOUNDMAN_H
 #define _SOUNDMAN_H
 
-#include <mmreg.h>
-#include <dsound.h>
 
 #include <set>
+#include <vector>
 
 #include "BasicException.h"
 #include "C2eTypes.h"
+
 
 
 #define MAX_ACTIVE_SOUNDS	32
@@ -35,6 +35,23 @@ typedef int SOUNDHANDLE;
 // Volumes range from -5000 (silence) to 0 (full volume)
 const int SoundMinVolume = -5000;
 
+class WebAudioBuffer {
+	public:
+		void Play(bool loop);
+		void Stop();
+		void SetVolume(long lVolume);
+		void SetPan(long lPan);
+		WebAudioBuffer *Duplicate();
+		bool IsPlaying();
+
+		uint32_t Release() {return 0;};
+
+		WebAudioBuffer(char *, DWORD);
+		~WebAudioBuffer();
+	private:
+		int index;
+};
+
 // CachedSound - Data structure storing members of sound cache
 class CachedSound
 {
@@ -44,7 +61,7 @@ public:
 	int used;						// Number indicating recent use
 	DWORD size;						// Size of sample in bytes
 	int copies;						// Number of active copies
-	IDirectSoundBuffer *buffer;		// Store of sound data
+	WebAudioBuffer *buffer;		// Store of sound data
 
 
 
@@ -63,7 +80,7 @@ public:
 class ActiveSample
 {
 public:
-	IDirectSoundBuffer	*pSample;	//	pointer to direct sound buffer
+	WebAudioBuffer 	*pSample;	//	pointer to direct sound buffer
 	DWORD				wID;		//	id of sample
 	BOOL				locked;		//  Do not delete when finished
 	long				fade_rate;	//	amount added to volume each tick
@@ -108,7 +125,7 @@ public:
 // Delayed sounds are placed on a queue maintained by the manager.
 
 
-class SoundManager
+class SoundManager {
 public:
 	//////////////////////////////////////////////////////////////////////////
 	// Exceptions
@@ -241,8 +258,7 @@ private:
 
 	// Share the DirectSound object and primary buffers between different sound managers
 	static int					references;
-	static LPDIRECTSOUND		pDSObject;
-	static IDirectSoundBuffer	*pPrimary;	//  pointer to primary buffer
+	//static WebAudioBuffer	*pPrimary;	//  pointer to primary buffer (for Emscripten, the audio context? A destination node?)
 
 	long				sounds_playing;
 	ActiveSample		active_sounds[MAX_ACTIVE_SOUNDS];
@@ -264,4 +280,3 @@ private:
 
 #endif
 
-#endif // _WIN32

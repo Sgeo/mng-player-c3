@@ -6,14 +6,130 @@
 #include "soundlib.h"
 //#include "../general.h"
 //#include "../C2eServices.h"
-#include "../File.h"
+#include "File.h"
 
+#include <math.h>
+#include <iostream>
+#include <cstring>
+#include <algorithm>
 
 #ifdef _MSC_VER
 #pragma warning (disable:4786 4503)
 #endif
 
 
+#include <emscripten.h>
+WebAudioBuffer::WebAudioBuffer(char *bytes, DWORD numBytes) {
+	this->index = EM_ASM_INT({
+		let index = SoundlibWebAudio.buffers.length;
+		let audioBufferPromise = bytes ? SoundlibWebAudio.audioContext.decodeAudioData(Module.HEAPU8.slice($0, $1).buffer) : Promise.resolve(null);
+		let gainNode = new GainNode(SoundlibWebAudio.audioContext);
+		//let panNode = new StereoPannerNode(SoundlibWebAudio.audioContext);
+		let splitter = new ChannelSplitterNode(SoundlibWebAudio.audioContext, {numberOfChannels: 2});
+		let merger = new ChannelMergerNode(SoundlibWebAudio.audioContext, {numberOfInputs: 2});
+		let leftGainNode = new GainNode(SoundlibWebAudio.audioContext);
+		let rightGainNode = new GainNode(SoundlibWebAudio.audioContext);
+
+		gainNode.connect(splitter);
+		splitter.connect(leftGainNode, 0);
+		splitter.connect(rightGainNode, 1);
+		leftGainNode.connect(merger, 0, 0);
+		rightGainNode.connect(merger, 0, 1);
+		merger.connect(SoundlibWebAudio.audioContext.destination);
+		
+		SoundlibWebAudio.buffers.push({
+			audioBufferPromise: audioBufferPromise,
+			audioBufferNode: null,
+			gainNode: gainNode,
+			leftGainNode: leftGainNode,
+			rightGainNode: rightGainNode,
+			playing: false
+		});
+		return index;
+	}, bytes, numBytes);
+}
+
+void WebAudioBuffer::Play(bool loop) {
+	EM_ASM({
+		let buffer = SoundlibWebAudio.buffers[$0];
+		buffer.audioBufferPromise = (async function() {
+			let audioBuffer = await buffer.audioBufferPromise;
+			if(buffer.audioBufferNode) {
+				buffer.audioBufferNode.stop();
+				buffer.audioBufferNode.disconnect(buffer.gainNode);
+				buffer.audioBufferNode = null;
+			}
+			buffer.audioBufferNode = new AudioBufferSourceNode(SoundlibWebAudio.audioContext);
+			buffer.audioBufferNode.addEventListener('ended', () => {
+				buffer.playing = false;
+			});
+			buffer.audioBufferNode.buffer = audioBuffer;
+			buffer.audioBufferNode.loop = !!loop;
+			buffer.audioBufferNode.connect(buffer.gainNode);
+			buffer.audioBufferNode.start();
+			return audioBuffer;
+		})();
+	}, this->index, loop);
+}
+
+void WebAudioBuffer::Stop() {
+	EM_ASM({
+		let buffer = SoundlibWebAudio.buffers[$0];
+		buffer.audioBufferPromise = (async function() {
+			let audioBuffer = await buffer.audioBufferPromise;
+			if(buffer.audioBufferNode) {
+				buffer.audioBufferNode.stop();
+				buffer.audioBufferNode.disconnect(buffer.gainNode);
+				buffer.audioBufferNode = null;
+			}
+			return audioBuffer;
+		})();
+	}, this->index);
+}
+
+void WebAudioBuffer::SetVolume(long lVolume) {
+	float gain = powf(10.0f, (float)lVolume / 2000.0f);
+
+	EM_ASM({
+		SoundlibWebAudio.buffers[$0].gainNode.gain.value = $1;
+	}, this->index, gain);
+
+}
+
+void WebAudioBuffer::SetPan(long lPan) {
+	// Remember that 0 is the highest volume
+	long lVolLeft  = std::min(0L, -lPan);
+	long lVolRight = std::min(0L,  lPan);
+	float leftGain = powf(10.0f, (float)lVolLeft / 2000.0f);
+	float rightGain = powf(10.0f, (float)lVolRight / 2000.0f);
+	EM_ASM({
+		SoundlibWebAudio.buffers[$0].leftGainNode.gain.value = $1;
+		SoundlibWebAudio.buffers[$0].rightGainNode.gain.value = $2;
+	}, this->index, leftGain, rightGain);
+}
+
+WebAudioBuffer *WebAudioBuffer::Duplicate() {
+	WebAudioBuffer *duplicate = new WebAudioBuffer(nullptr, 0);
+	EM_ASM({
+		let source = SoundlibWebAudio.buffers[$0];
+		let dest = SoundlibWebAudio.buffers[$1];
+		dest.audioBufferPromise = source.audioBufferPromise;
+		dest.gainNode.gain.value = source.gainNode.gain.value;
+		dest.leftGainNode.gain.value = source.leftGainNode.gain.value;
+		dest.rightGainNode.gain.value = source.rightGainNode.gain.value;
+	}, this->index, duplicate->index);
+	return duplicate;
+}
+
+bool WebAudioBuffer::IsPlaying() {
+	return EM_ASM_INT({
+		return SoundlibWebAudio.buffers[$0].playing ? 1 : 0;
+	}, this->index) != 0;
+}
+
+WebAudioBuffer::~WebAudioBuffer() {
+	// TODO: Does anything need to be done here?
+}
 
 
 // ----------------------------------------------------------------------
@@ -47,15 +163,7 @@ CachedSound::~CachedSound()
 	}
 }
 
-bool CachedSound::Write(CreaturesArchive &archive) const
-{
-	return false;
-}
 
-bool CachedSound::Read(CreaturesArchive &archive)
-{
-	return false;
-}
 
 ActiveSample::ActiveSample() :
 	pSample(NULL),
@@ -71,8 +179,6 @@ ActiveSample::ActiveSample() :
 // Static variables
 // Share the DirectSound object and primary buffers between different sound managers
 int	SoundManager::references=0;
-LPDIRECTSOUND SoundManager::pDSObject=NULL;
-IDirectSoundBuffer	*SoundManager::pPrimary=NULL;
 
 void SoundManager::SetMNGFile(std::string& mng)
 {
@@ -93,6 +199,12 @@ SoundManager::SoundManager() :
 	faded(false)
 {
 
+	EM_ASM({
+		SoundlibWebAudio = {};
+		SoundlibWebAudio.buffers = [];
+		SoundlibWebAudio.audioContext = new AudioContext();
+	});
+
 	mungeFile = "music.mng";
 
 	references++;
@@ -103,98 +215,11 @@ SoundManager::SoundManager() :
 		///////////////////////////////////////////////////
 		// SET UP DIRECT SOUND (FOR EFFECTS)
 
-		//Create a DirectSound object...
-		HRESULT hr;
-
-		if(hr = DirectSoundCreate(NULL, &pDSObject, NULL)!=DS_OK) {
-			// Failed to create DS Object
-			std::string string = ErrorMessageHandler::Format("sound_error",
-										(int)SoundManager::sidFailedToCreateDirectSoundObject,
-										std::string("SoundManager::SoundManager")
-			);
-			throw(SoundManager::SoundException(string,__LINE__));
-		}
-
-		// Get a handler to the window
-		HWND hWnd;
-		hWnd=theApp.GetMainHWND();
-
-		//set the coop level...
-		if ((hr=pDSObject->SetCooperativeLevel(hWnd, DSSCL_PRIORITY))!=DS_OK)
-			{
-			if (hr==DSERR_ALLOCATED)
-				{
-				  // Failed to set cooperative level. Resources already allocated
-				}
-			if (hr==DSERR_INVALIDPARAM)
-				{
-				  // Failed to set cooperative level. Invalid parameter
-				}
-
-			std::string string = ErrorMessageHandler::Format("sound_error",
-										(int)SoundManager::sidFailedToSetCooperativeLevel,
-										std::string("SoundManager::SoundManager")
-			);
-			throw(SoundManager::SoundException(string,__LINE__));
-		}
-
-
-		DSBUFFERDESC	dsbdesc;
-		//setup the DSBUFFERDESC structure
-		memset(&dsbdesc, 0 , sizeof(DSBUFFERDESC));
-
-		dsbdesc.dwSize				= sizeof(DSBUFFERDESC);
-		dsbdesc.dwFlags				= DSBCAPS_PRIMARYBUFFER | DSBCAPS_CTRLVOLUME;
 		
-		dsbdesc.dwBufferBytes		= 0;
-		
-		dsbdesc.lpwfxFormat			= NULL;
+		//pPrimary = nullptr; // TODO: ?
 
 
-
-		//create the primary sound buffer
-		hr=pDSObject->CreateSoundBuffer(&dsbdesc,
-										&pPrimary,
-										NULL);
-
-
-		if (hr!=DS_OK)
-			{
-			// Primary buffer not created
-			std::string string = ErrorMessageHandler::Format("sound_error",
-										(int)SoundManager::sidPrimaryBufferNotCreated,
-										std::string("SoundManager::SoundManager")
-			);
-			throw(SoundManager::SoundException(string,__LINE__));
-			}
-
-		WAVEFORMATEX wvfm;
-		
-		pPrimary->GetFormat(&wvfm,sizeof(wvfm),NULL);
-
-		wvfm.nChannels=2;
-		wvfm.nSamplesPerSec=22050;
-		wvfm.nAvgBytesPerSec=88200;
-		wvfm.nBlockAlign=4;
-		wvfm.wBitsPerSample=16;
-
-		hr=pPrimary->SetFormat(&wvfm);
-
-		if (hr!=DS_OK)
-			{
-			// Primary buffer could not be set to new format
-			pPrimary->GetFormat(&wvfm,sizeof(wvfm),NULL);
-
-			std::string string = ErrorMessageHandler::Format("sound_error",
-										(int)SoundManager::sidPrimaryBufferCouldNotBeSetToNewFormat,
-										std::string("SoundManager::SoundManager")
-			);
-			throw(SoundManager::SoundException(string,__LINE__));
-			}
 		}
-
-
-
 	sounds_playing = 0;
 	sound_index = 1;
 
@@ -236,9 +261,6 @@ SoundManager::~SoundManager()
 	if (-- references == 0)
 		{
 
-		pPrimary ->Release();
-
-		pDSObject->Release();
 
 		}
 }
@@ -255,12 +277,12 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 	bool munged = wave >= 0xff000000;
 
 	File file;
+	int offset, size;
 	if (munged)
 		{
 		try
 		{
-			char buf[_MAX_PATH];
-			theApp.GetDirectory(SOUNDS_DIR,buf);
+			char buf[_MAX_PATH] = "/home/web_user/music/";
 			std::string path(buf);
 			//path+="Music.mng";
 			path += mungeFile;
@@ -273,7 +295,8 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 		}
 		catch(File::FileException& e)
 		{
-			ErrorMessageHandler::Show(e, std::string("SoundLib::OpenSound"));
+			//ErrorMessageHandler::Show(e, std::string("SoundLib::OpenSound"));
+			std::cerr << "SoundLib::OpenSound\n" << e.what() << "\n";
 			return NULL;
 
 		}
@@ -293,7 +316,7 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 		file.Seek( (3 + index * 2) * sizeof(int), File::Start);
 
 		// Now read in the offset to the start, and the total size
-		int offset, size;
+		
 		file.Read(&offset,sizeof(int));
 		file.Read(&size,sizeof(int));
 
@@ -302,225 +325,37 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 		}
 	else
 	{
-		try
-		{
-			std::string string(BuildFsp(wave,"wav",SOUNDS_DIR));
-
-			// Need to load in sound from 'Sounds' directory
-			file.Open(string);
-			string +="\n";
-		}
-		catch(File::FileException& e)
-		{
-			ErrorMessageHandler::Show(e, std::string("SoundLib::OpenSound"));
-			return NULL;
-		}
-	}
-
-	DSBUFFERDESC	dsbdesc;
-	PCMWAVEFORMAT	pcmwf;			// this structure has been superseeded by WAVEFORMATEX - 
-	HRESULT			hr;				// but the direct sound documentation example uses PCMWAVEFORMAT
-
-	DWORD			dwLength;
-
-	char			dword_str[5]="xxxx";	// used for comparing strings in file
-
-	//----------------------------------
-
-	// Skip the first sixteen bytes if we're reading the
-	// munged version.  This removes a few extra clues about
-	// the file structure
-
-	if (!munged)
-		{
-
-		//CHECK THAT THE FILE IS OF CORRECT FORMAT (RIFF)....
-		file.Read(dword_str, 4);
-		if(strcmp(dword_str,"RIFF")!=0)
-			return NULL;
-		
-		file.Read(&dwLength, 4);
-
-		//is it a WAV????
-		file.Read(dword_str, 4);
-		if(strcmp(dword_str,"WAVE")!=0)
-			return NULL;
-		
-		file.Read(dword_str, 4);
-		if(strcmp(dword_str,"fmt ")!=0)
-			return NULL;
-		}
-
-
-	//READ THE WAVE HEADER...........
-	DWORD header_size;
-	file.Read(&header_size,4);
-	
-	file.Read(&pcmwf.wf.wFormatTag,2);
-	file.Read(&pcmwf.wf.nChannels,2);
-
-	file.Read(&pcmwf.wf.nSamplesPerSec,4);
-	file.Read(&pcmwf.wf.nAvgBytesPerSec,4);
-
-	file.Read(&pcmwf.wf.nBlockAlign,2);
-	file.Read(&pcmwf.wBitsPerSample,2);
-
-	if (header_size>16)
-	{
-		// Skip past any extra header data
-		file.Seek(header_size-16,File::Current);
-	}
-
-	file.Read(dword_str, 4);
-	if (strcmp(dword_str,"fact")==0)
-	{
-		// Skip past 'fact' data
-		file.Seek(8,File::Current);
-		file.Read(dword_str, 4);
-	}
-
-	if(strcmp(dword_str,"data")!=0)
+		std::cerr << "Not supporting sound effects right now, sorry!\n";
 		return NULL;
-
-	// calculate the remaining number of bytes in the file
-	DWORD	numbytes;	//=file.GetLength()-file.GetPosition();
-	file.Read(&numbytes,4);
-
-	//setup the DSBUFFERDESC structure
-	memset(&dsbdesc, 0 , sizeof(DSBUFFERDESC));
-
-	dsbdesc.dwSize				= sizeof(DSBUFFERDESC);
-	dsbdesc.dwFlags				= DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLPAN | DSBCAPS_GLOBALFOCUS;	//|DSBCAPS_STATIC;		//need default controls (vol, pan, freq)
-	
-	dsbdesc.dwBufferBytes		= numbytes;
-	
-	dsbdesc.lpwfxFormat			= (LPWAVEFORMATEX)&pcmwf;
-
-
-	IDirectSoundBuffer *buffer;
-
-	//create the sound buffer
-	hr=pDSObject->CreateSoundBuffer(&dsbdesc,
-									&buffer,
-									NULL);
-
-	//now copy the sound data to the DirectSound buffer
-	if(hr==DS_OK)
-	{												
-		LPVOID	lpvAudio1, lpvAudio2;
-		DWORD	Bytes1, Bytes2;
-		//--------------------------------
-
-		//obtain a write pointer
-		hr = buffer->Lock(0, numbytes,
-						  &lpvAudio1, &Bytes1,
-						  &lpvAudio2, &Bytes2,
-						  0);
-
-		//if we got a DSERR_BUFFERLOST try again
-		if(hr==DSERR_BUFFERLOST)
-		{
-			buffer->Restore();
-			hr = buffer->Lock(0, numbytes,
-							  &lpvAudio1, &Bytes1,
-							  &lpvAudio2, &Bytes2,
-							  0);
-		}
-
-		//if now okay copy the buffer...
-		if(hr==DS_OK)
-		{
-			file.Read(lpvAudio1, Bytes1);
-
-			if(lpvAudio2!=NULL)
-			{
-				//this shouldn't happen (since these are all NEW DirectSound buffers)
-				file.Read(lpvAudio2, Bytes2);
-			}
-
-			//now unlock the thingy....
-			hr=buffer->Unlock(lpvAudio1, Bytes1, lpvAudio2, Bytes2);
-
-			CachedSound *w=new CachedSound;
-			w->name=wave;
-			w->used=last_used++;
-			w->size=numbytes;
-			w->copies=0;
-			w->buffer=buffer;
-			
-			return(w);
-
-		}
-		else
-		{
-			switch(hr)
-			{
-				case(DSERR_BUFFERLOST):
-					{
-						// DSERR_BUFFERLOST
-						break;
-					}
-				case(DSERR_INVALIDCALL):
-					{
-						// DSERR_INVALIDCALL
-						break;
-					}
-				case(DSERR_INVALIDPARAM):
-					{
-						// DSERR_INVALIDPARAM
-						break;
-					}
-				case(DSERR_PRIOLEVELNEEDED):
-					{
-						// DSERR_PRIOLEVELNEEDED
-						break;
-					}
-				default:
-					{
-						// Unknown error
-						break;
-					}
-			}
-
-			//everything failed dismally...
-			return NULL;
-		}
-
 	}
-	else
-	{
-		int catalogue_index = 2;
-		switch(hr)
-		{
-			case DSERR_ALLOCATED:		catalogue_index = 3;
-										break;
 
-			case DSERR_BADFORMAT:		catalogue_index = 4;
-										break;
+	int wav_size = size+16;
+	char *wav_data = new char[wav_size];
+	strncpy(wav_data, "RIFF\x00\x00\x00\x00WAVEfmt ", 16);
+	wav_data[7] = ((wav_size-8) >> 24) & 0xFF;
+	wav_data[6] = ((wav_size-8) >> 16) & 0xFF;
+	wav_data[5] = ((wav_size-8) >> 8) & 0xFF;
+	wav_data[4] = ((wav_size-8)) & 0xFF;
 
-			case DSERR_INVALIDPARAM:	catalogue_index = 5;
-										break;
+	file.Read(wav_data+16, size);
 
-			case DSERR_NOAGGREGATION:	catalogue_index = 6;
-										break;
+	WebAudioBuffer *buffer = new WebAudioBuffer(wav_data, wav_size);
+	CachedSound *w = new CachedSound;
+	w->name = wave;
+	w->used = last_used++;
+	w->size = size;
+	w->copies = 0;
+	w->buffer = buffer;
 
-			case DSERR_OUTOFMEMORY:		catalogue_index = 7;
-										break;
-		}
-
-		ErrorMessageHandler::Show("sound_error", catalogue_index, "SoundManager::OpenSound");
-
-		return NULL;									
-	}
+	return w;
+	
 }
 
 SOUNDHANDLE SoundManager::PlayCachedSound(CachedSound *wave,
 				int volume, int pan, BOOL loop)
 {
-	IDirectSoundBuffer *pDSBuffer=wave->buffer;
+	WebAudioBuffer *pDSBuffer=wave->buffer;
 	ActiveSample		*pActive;
-	DWORD				status, playflags=0;
-	HRESULT				result=DS_OK;
 	//------------------
 
 	//any spare slots????
@@ -550,14 +385,14 @@ SOUNDHANDLE SoundManager::PlayCachedSound(CachedSound *wave,
 
 	// Set the sound's basic volume (before overall volume is taken
 	// into account)
-	pActive -> volume = volume;
+	pActive->volume = volume;
 	
 	//is the bank's sample playing??? if it is we need to duplicate it...
-	pDSBuffer->GetStatus(&status);
+
 	
-	if(status&DSBSTATUS_PLAYING)
+	if(pDSBuffer->IsPlaying())
 	{
-		result=pDSObject->DuplicateSoundBuffer(pDSBuffer, &(pActive->pSample));
+		pActive->pSample = pDSBuffer->Duplicate();
 		
 		pActive->cloned=wave;	//mark as not the original buffer i.e. a copy
 		wave->copies++;
@@ -569,47 +404,36 @@ SOUNDHANDLE SoundManager::PlayCachedSound(CachedSound *wave,
 
 	}
 
-	//is everything okay?????
-	if(result==DS_OK)
-	{
-		//set up flags
-		if (loop)
+
+
+	pDSBuffer=pActive->pSample;
+
+	// Take the overall volume of the manager into account
+	volume += current_volume;
+
+	// Can't get quieter than silence
+	if (volume < SoundMinVolume)
 		{
-			playflags |= DSBPLAY_LOOPING;
+		volume = SoundMinVolume;
 		}
 
-		pDSBuffer=pActive->pSample;
+	pDSBuffer->SetVolume(volume);
 
-		// Take the overall volume of the manager into account
-		volume += current_volume;
-
-		// Can't get quieter than silence
-		if (volume < SoundMinVolume)
-			{
-			volume = SoundMinVolume;
-			}
-
-		pDSBuffer->SetVolume(volume);
-
-		if (volume > 0 || volume < SoundMinVolume)
-			{
-			// "Volume out of range %d\n",volume 
-			}
-
-		pDSBuffer->SetPan(pan);
-
-		//play the sample 
-		
-		result=pDSBuffer->Play(0, 0, playflags);	
-		
-		if(result==DS_OK)
+	if (volume > 0 || volume < SoundMinVolume)
 		{
-			//set up the sample
-			pActive->wID= ++sound_index;			//need pre increment!
-
-			sounds_playing++;
+		// "Volume out of range %d\n",volume 
 		}
-	}
+
+	pDSBuffer->SetPan(pan);
+
+	//play the sample 
+	
+	pDSBuffer->Play(loop);	
+
+	//set up the sample
+	pActive->wID= ++sound_index;			//need pre increment!
+
+	sounds_playing++;
 
 	// Flag as unlocked (delete when finished)
 	active_sounds[i].locked=FALSE;
@@ -722,9 +546,8 @@ void SoundManager::Update()
 				if (active_sounds[i].wID)
 					{
 					DWORD status;
-					IDirectSoundBuffer *pDSBuffer=active_sounds[i].pSample;
-					pDSBuffer->GetStatus(&status);
-					if (!(status&DSBSTATUS_PLAYING))
+					WebAudioBuffer *pDSBuffer=active_sounds[i].pSample;
+					if (!(pDSBuffer->IsPlaying()))
 						{
 						if (!active_sounds[i].locked)
 							{
@@ -808,7 +631,7 @@ void SoundManager::StopSound(SOUNDHANDLE handle)
 			// but that would be pause sound so I will
 			// set it back to the beginning here...
 			pActive->pSample->Stop();
-			pActive->pSample->SetCurrentPosition(0);
+			//pActive->pSample->SetCurrentPosition(0);
 
 
 			if (pActive->cloned!=NULL)
@@ -999,9 +822,7 @@ SOUNDERROR SoundManager::MakeRoomInCache(int size)
 			{
 			
 				// is this sound playing, or is there an existing clone playing?
-				uint32 status;
-				(*it)->buffer->GetStatus(&status);
-				if (!(status&DSBSTATUS_PLAYING) && (*it)->copies==0)
+				if (!((*it)->buffer->IsPlaying()) && (*it)->copies==0)
 				{
 					age=(*it)->used;
 				oldestWave = (*it);
@@ -1019,23 +840,9 @@ SOUNDERROR SoundManager::MakeRoomInCache(int size)
 		}
 	}
 
-	if (no_space)
-	{
-		return(SOUNDCACHE_TOO_SMALL);
-	}
-	else
-	{
-		HRESULT hr=pDSObject->Compact();
-		if (hr==DSERR_INVALIDPARAM)
-		{
-			// DS Compact- Invalid Parameter
-		}
-		if (hr==DSERR_PRIOLEVELNEEDED)
-		{
-			// DS Compact- Wrong priority
-		}
-		return(NO_SOUND_ERROR);
-	}
+
+
+	return(NO_SOUND_ERROR);
 
 }
 
@@ -1048,8 +855,7 @@ int SoundManager::GetWaveSize(DWORD wave)
 		File munged;
 		try
 		{
-			char buf[_MAX_PATH];
-			theApp.GetDirectory(SOUNDS_DIR,buf);
+			char buf[_MAX_PATH] = "/home/web_user/music";
 			std::string path(buf);
 			//path+="Music.mng";
 			path += mungeFile;
@@ -1075,25 +881,30 @@ int SoundManager::GetWaveSize(DWORD wave)
 			}
 		catch(File::FileException& e)
 			{
-			ErrorMessageHandler::Show(e, std::string("SoundLib::GetWaveSize"));
+			//ErrorMessageHandler::Show(e, std::string("SoundLib::GetWaveSize"));
+			std::cerr << "SoundLib::GetWaveSize\n" << e.what() << "\n";
 			return (0);
 			}
 		}
 	else
 	{
-		File file;
-		try
-		{
-			// Need to load in sound from 'Sounds' directory
-			file.Open(std::string(BuildFsp(wave,"wav",SOUNDS_DIR)));
-		}
-		catch(File::FileException& e)
-		{
-			ErrorMessageHandler::Show(e, std::string("SoundLib::GetWaveSize"));
-			return(0);
-		}
+		std::cerr << "Non-munged files not supported\n";
+		return 0;
+		// return 0;
+		// File file;
+		// try
+		// {
+		// 	// Need to load in sound from 'Sounds' directory
+		// 	file.Open(std::string(BuildFsp(wave,"wav",SOUNDS_DIR)));
+		// }
+		// catch(File::FileException& e)
+		// {
+		// 	//ErrorMessageHandler::Show(e, std::string("SoundLib::GetWaveSize"));
+		// 	std::cerr << "SoundLib::GetWaveSize\n" << e.what() << "\n";
+		// 	return(0);
+		// }
 		
-		return(file.GetSize());
+		// return(file.GetSize());
 		
 	}
 }
@@ -1310,9 +1121,8 @@ BOOL SoundManager::FinishedControlledSound(SOUNDHANDLE handle)
 	if (active_sounds[handle].wID)
 	{
 		DWORD status;
-		IDirectSoundBuffer *pDSBuffer=active_sounds[handle].pSample;
-		pDSBuffer->GetStatus(&status);
-		if (status&DSBSTATUS_PLAYING)
+		WebAudioBuffer *pDSBuffer=active_sounds[handle].pSample;
+		if (pDSBuffer->IsPlaying())
 		{
 			return(FALSE);
 		}
