@@ -25,6 +25,9 @@ EMSCRIPTEN_BINDINGS(mngplayer) {
     class_<MusicManager>("MusicManager")
         .constructor(&initMusicManager)
         .function("LoadScrambled", &MusicManager::LoadScrambled)
+        .function("UpdateSettings", &MusicManager::UpdateSettings)
+        .function("GetMood", &MusicManager::GetMood)
+        .function("GetThreat", &MusicManager::GetThreat)
         .function("StartReadingTracks", &MusicManager::StartReadingTracks)
         .function("GetNextTrack", optional_override([](MusicManager& self) {
             std::string result;
@@ -42,9 +45,18 @@ EMSCRIPTEN_BINDINGS(mngplayer) {
             return result;
         }))
         .function("Play", &MusicManager::Play)
+        .function("Pause", &MusicManager::Pause)
         .function("Update", &MusicManager::Update)
         .function("BeginTrack", optional_override([](MusicManager& self, std::string track) {
             self.BeginTrack(track.c_str());
         }))
+        .function("InteruptTrack", optional_override([](MusicManager& self, std::string track) {
+            self.InteruptTrack(track.c_str());
+        }))
+        .function("Fade", &MusicManager::Fade)
+        .function("SetVolume", &MusicManager::SetVolume)
+        .function("GetVolume", &MusicManager::GetVolume)
+        .function("IsPlaying", &MusicManager::IsPlaying)
+        
         ;
 }

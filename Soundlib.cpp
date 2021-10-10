@@ -21,9 +21,7 @@
 #include <emscripten.h>
 WebAudioBuffer::WebAudioBuffer(char *bytes, DWORD numBytes) {
 	this->index = EM_ASM_INT({
-		console.log('Creating new WebAudioBuffer', $0, $1);
 		let index = Module.SoundlibWebAudio.buffers.length;
-		console.log('Data to decode:',Module.HEAPU8.slice($0, $0+$1));
 		let audioBufferPromise = $0 ? Module.SoundlibWebAudio.audioContext.decodeAudioData(Module.HEAPU8.slice($0, $0+$1).buffer) : Promise.resolve(null);
 		let gainNode = new GainNode(Module.SoundlibWebAudio.audioContext);
 		//let panNode = new StereoPannerNode(Module.SoundlibWebAudio.audioContext);
@@ -269,7 +267,6 @@ SoundManager::~SoundManager()
 
 CachedSound *SoundManager::OpenSound(DWORD wave)
 {
-	std::cerr << "Beginning of OpenSound\n";
 	if (!sound_initialised)
 	{
 		std::cerr << "sound not initialised!\n";
@@ -284,19 +281,16 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 	int offset, size;
 	if (munged)
 		{
-		std::cerr << "Munged file.\n";
 		try
 		{
 			char buf[_MAX_PATH] = "/home/web_user/music/";
 			std::string path(buf);
 			//path+="Music.mng";
 			path += mungeFile;
-			std::cerr << "Trying to open path " << path << "\n";
 			file.Open(path);
 		
 			if(!file.Valid())
 			{
-				std::cerr << "Munged file invalid!\n";
 				return NULL;
 			}
 		}
@@ -308,7 +302,6 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 
 		}
 
-		std::cerr << "File loaded, going to read and seek some stuff\n";
 
 
 		// Calculate the index into the file
@@ -332,7 +325,6 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 		// Now point straight to the start of the wave
 		file.Seek(offset,File::Start);
 
-		std::cerr << "Seek'd\n";
 		}
 	else
 	{
@@ -340,7 +332,6 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 		return NULL;
 	}
 
-	std::cerr << "About to create .wav buffer\n";
 	int wav_size = size+16;
 	char *wav_data = new char[wav_size];
 	memcpy(wav_data, "RIFF\x00\x00\x00\x00WAVEfmt ", 16);
@@ -348,7 +339,6 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 	wav_data[6] = ((wav_size-8) >> 16) & 0xFF;
 	wav_data[5] = ((wav_size-8) >> 8) & 0xFF;
 	wav_data[4] = ((wav_size-8)) & 0xFF;
-	std::cerr << "Created .wav buffer size " << wav_size << "\n";
 
 	file.Read(wav_data+16, size);
 

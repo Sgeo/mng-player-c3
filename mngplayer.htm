@@ -3,30 +3,61 @@
     <head>
         <meta charset="utf-8">
         <title>MNG Player Playground</title>
-        <script>
-        window.Module = {
-            preRun() {
-                FS.createPreloadedFile(FS.mkdir("/home/web_user/music/"), "music.mng", "DS_Music.mng", true, true);
-            },
-            onRuntimeInitialized() {
-                let mm = new Module.MusicManager();
-                mm.LoadScrambled();
-                mm.BeginTrack("StringsFull");
-                mm.Play();
-                setInterval(() => {
-                    mm.getSoundManager().Update();
-                    mm.Update();
-                }, 55);
-                window.once = () => {
-                    mm.getSoundManager().Update();
-                    mm.Update();
+        <script type="module">
+            import { html, render } from 'https://unpkg.com/lit-html@2.0.1/lit-html.js';
+            import MNGPlayer from './mngplayer.js';
+
+
+            let player = new MNGPlayer();
+            window.player = player;
+
+            async function loadMusic(file) {
+                await player.load(file);
+                let tracks = player.getTrackNames();
+                player.play();
+                player.run();
+                render(mainUI(tracks), document.body);
+            }
+
+            let loadButtons = html`
+                <button @click=${() => loadMusic("Music.mng")}>Load C3 music</button>
+                <button @click=${() => loadMusic("DS_Music.mng")}>Load DS music</button>
+            `;
+
+            let trackUI = trackName => html`
+                <button @click=${() => {player.beginTrack(trackName); console.log(trackName);}}>${trackName}</button>
+                <br>
+            `;
+
+            function changePropHandler(prop) {
+                return function() {
+                    player[prop] = parseFloat(this.value);
                 };
             }
-        };
+
+            let mainUI = tracks => html`
+                <label for="volume">Volume</label><input @input=${changePropHandler("volume")} name="volume" type="range" min=0 max=1 step="0.01" value=1>
+                <br>
+                <label for="mood">Mood</label><input @input=${changePropHandler("mood")} name="mood" type="range" min=0 max=1 step="0.01" value=0>
+                <br>
+                <label for="threat">Threat</label><input @input=${changePropHandler("threat")} name="threat" type="range" min=0 max=1 step="0.01" value=0>
+                <br>
+                <button @click=${() => player.play()}>Play</button>
+                <br>
+                <button @click=${() => player.pause()}>Pause</button>
+                <br>
+                <button @click=${() => player.fade()}>Fade</button>
+                <br>
+                <hr>
+                ${tracks.map(trackUI)}
+            `;
+
+
+
+            render(loadButtons, document.body);
+            
         </script>
-        <script src="mngplayer.js"></script>
     </head>
     <body>
-
     </body>
 </html>
