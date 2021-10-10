@@ -7,20 +7,24 @@
             import { html, render } from 'https://unpkg.com/lit-html@2.0.1/lit-html.js';
             import MNGPlayer from './mngplayer.js';
 
+            let main = document.querySelector("#main");
+
 
             let player = new MNGPlayer();
             window.player = player;
 
             async function loadMusic(file) {
-                render(html`Loading...`, document.body);
+                render(html`Loading...`, main);
                 await player.load(file);
                 let tracks = player.getTrackNames();
                 player.play();
                 player.run();
-                render(mainUI(tracks), document.body);
+                render(mainUI(tracks), main);
             }
 
             let loadButtons = html`
+                <button @click=${() => loadMusic("c1_music.mng")}>Load C1 music</button>
+                <button @click=${() => loadMusic("c2tods.mng")}>Load C2 music</button>
                 <button @click=${() => loadMusic("Music.mng")}>Load C3 music</button>
                 <button @click=${() => loadMusic("DS_Music.mng")}>Load DS music</button>
             `;
@@ -55,10 +59,13 @@
 
 
 
-            render(loadButtons, document.body);
+            render(loadButtons, main);
             
         </script>
     </head>
     <body>
+        <p>This is an <a href="https://github.com/Sgeo/mng-player-c3">Emscripten compile</a> of the music playing portions of the <a href="https://archive.org/details/lc2e-sun-16-jan-2000.tar01">Creatures 3 source code</a>.</p>
+        <hr>
+        <div id="main"></div>
     </body>
 </html>
