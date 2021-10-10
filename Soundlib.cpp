@@ -204,6 +204,7 @@ SoundManager::SoundManager() :
 		SoundlibWebAudio = {};
 		SoundlibWebAudio.buffers = [];
 		SoundlibWebAudio.audioContext = new AudioContext();
+		autoResumeAudioContext(SoundlibWebAudio.audioContext);
 	});
 
 	mungeFile = "music.mng";
