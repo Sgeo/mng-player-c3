@@ -22,22 +22,22 @@
 WebAudioBuffer::WebAudioBuffer(char *bytes, DWORD numBytes) {
 	this->index = EM_ASM_INT({
 		console.log('Creating new WebAudioBuffer', $0, $1);
-		let index = SoundlibWebAudio.buffers.length;
+		let index = Module.SoundlibWebAudio.buffers.length;
 		console.log('Data to decode:',Module.HEAPU8.slice($0, $0+$1));
-		let audioBufferPromise = $0 ? SoundlibWebAudio.audioContext.decodeAudioData(Module.HEAPU8.slice($0, $0+$1).buffer) : Promise.resolve(null);
-		let gainNode = new GainNode(SoundlibWebAudio.audioContext);
-		//let panNode = new StereoPannerNode(SoundlibWebAudio.audioContext);
-		let merger = SoundlibWebAudio.audioContext.createChannelMerger(2);
-		let leftGainNode = new GainNode(SoundlibWebAudio.audioContext);
-		let rightGainNode = new GainNode(SoundlibWebAudio.audioContext);
+		let audioBufferPromise = $0 ? Module.SoundlibWebAudio.audioContext.decodeAudioData(Module.HEAPU8.slice($0, $0+$1).buffer) : Promise.resolve(null);
+		let gainNode = new GainNode(Module.SoundlibWebAudio.audioContext);
+		//let panNode = new StereoPannerNode(Module.SoundlibWebAudio.audioContext);
+		let merger = Module.SoundlibWebAudio.audioContext.createChannelMerger(2);
+		let leftGainNode = new GainNode(Module.SoundlibWebAudio.audioContext);
+		let rightGainNode = new GainNode(Module.SoundlibWebAudio.audioContext);
 
 		gainNode.connect(leftGainNode);
 		gainNode.connect(rightGainNode);
 		leftGainNode.connect(merger, 0, 0);
 		rightGainNode.connect(merger, 0, 1);
-		merger.connect(SoundlibWebAudio.audioContext.destination);
+		merger.connect(Module.SoundlibWebAudio.audioContext.destination);
 		
-		SoundlibWebAudio.buffers.push({
+		Module.SoundlibWebAudio.buffers.push({
 			audioBufferPromise: audioBufferPromise,
 			audioBufferNode: null,
 			gainNode: gainNode,
@@ -51,7 +51,7 @@ WebAudioBuffer::WebAudioBuffer(char *bytes, DWORD numBytes) {
 
 void WebAudioBuffer::Play(bool loop) {
 	EM_ASM({
-		let buffer = SoundlibWebAudio.buffers[$0];
+		let buffer = Module.SoundlibWebAudio.buffers[$0];
 		buffer.playing = true;
 		buffer.audioBufferPromise = (async function() {
 			let audioBuffer = await buffer.audioBufferPromise;
@@ -60,7 +60,7 @@ void WebAudioBuffer::Play(bool loop) {
 				buffer.audioBufferNode.disconnect(buffer.gainNode);
 				buffer.audioBufferNode = null;
 			}
-			buffer.audioBufferNode = new AudioBufferSourceNode(SoundlibWebAudio.audioContext);
+			buffer.audioBufferNode = new AudioBufferSourceNode(Module.SoundlibWebAudio.audioContext);
 			buffer.audioBufferNode.addEventListener('ended', () => {
 				buffer.playing = false;
 			});
@@ -75,7 +75,7 @@ void WebAudioBuffer::Play(bool loop) {
 
 void WebAudioBuffer::Stop() {
 	EM_ASM({
-		let buffer = SoundlibWebAudio.buffers[$0];
+		let buffer = Module.SoundlibWebAudio.buffers[$0];
 		buffer.audioBufferPromise = (async function() {
 			let audioBuffer = await buffer.audioBufferPromise;
 			if(buffer.audioBufferNode) {
@@ -92,7 +92,7 @@ void WebAudioBuffer::SetVolume(long lVolume) {
 	float gain = powf(10.0f, (float)lVolume / 2000.0f);
 
 	EM_ASM({
-		SoundlibWebAudio.buffers[$0].gainNode.gain.value = $1;
+		Module.SoundlibWebAudio.buffers[$0].gainNode.gain.value = $1;
 	}, this->index, gain);
 
 }
@@ -104,16 +104,16 @@ void WebAudioBuffer::SetPan(long lPan) {
 	float leftGain = powf(10.0f, (float)lVolLeft / 2000.0f);
 	float rightGain = powf(10.0f, (float)lVolRight / 2000.0f);
 	EM_ASM({
-		SoundlibWebAudio.buffers[$0].leftGainNode.gain.value = $1;
-		SoundlibWebAudio.buffers[$0].rightGainNode.gain.value = $2;
+		Module.SoundlibWebAudio.buffers[$0].leftGainNode.gain.value = $1;
+		Module.SoundlibWebAudio.buffers[$0].rightGainNode.gain.value = $2;
 	}, this->index, leftGain, rightGain);
 }
 
 WebAudioBuffer *WebAudioBuffer::Duplicate() {
 	WebAudioBuffer *duplicate = new WebAudioBuffer(nullptr, 0);
 	EM_ASM({
-		let source = SoundlibWebAudio.buffers[$0];
-		let dest = SoundlibWebAudio.buffers[$1];
+		let source = Module.SoundlibWebAudio.buffers[$0];
+		let dest = Module.SoundlibWebAudio.buffers[$1];
 		dest.audioBufferPromise = source.audioBufferPromise;
 		dest.gainNode.gain.value = source.gainNode.gain.value;
 		dest.leftGainNode.gain.value = source.leftGainNode.gain.value;
@@ -124,7 +124,7 @@ WebAudioBuffer *WebAudioBuffer::Duplicate() {
 
 bool WebAudioBuffer::IsPlaying() {
 	return EM_ASM_INT({
-		return SoundlibWebAudio.buffers[$0].playing ? 1 : 0;
+		return Module.SoundlibWebAudio.buffers[$0].playing ? 1 : 0;
 	}, this->index) != 0;
 }
 
@@ -201,10 +201,10 @@ SoundManager::SoundManager() :
 {
 
 	EM_ASM({
-		SoundlibWebAudio = {};
-		SoundlibWebAudio.buffers = [];
-		SoundlibWebAudio.audioContext = new AudioContext();
-		autoResumeAudioContext(SoundlibWebAudio.audioContext);
+		Module.SoundlibWebAudio = {};
+		Module.SoundlibWebAudio.buffers = [];
+		Module.SoundlibWebAudio.audioContext = new AudioContext();
+		autoResumeAudioContext(Module.SoundlibWebAudio.audioContext);
 	});
 
 	mungeFile = "music.mng";

@@ -1,1 +1,1 @@
-emcc --bind -s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE="\$Browser,\$autoResumeAudioContext" -s NO_DISABLE_EXCEPTION_CATCHING -s ALLOW_MEMORY_GROWTH=1 *.cpp *.c -o mngplayer.js
+emcc --bind  -s EXPORT_ES6=1 -s MODULARIZE=1 -s DEFAULT_LIBRARY_FUNCS_TO_INCLUDE="\$Browser,\$autoResumeAudioContext" -s NO_DISABLE_EXCEPTION_CATCHING -s ALLOW_MEMORY_GROWTH=1 -s EXPORTED_RUNTIME_METHODS='[FS]' *.cpp -o mngplayer-sys.js

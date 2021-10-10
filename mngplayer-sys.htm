@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <title>MNG Player Playground</title>
+        <script>
+        window.Module = {
+            preRun() {
+                FS.createPreloadedFile(FS.mkdir("/home/web_user/music/"), "music.mng", "DS_Music.mng", true, true);
+            },
+            onRuntimeInitialized() {
+                let mm = new Module.MusicManager();
+                mm.LoadScrambled();
+                mm.BeginTrack("StringsFull");
+                mm.Play();
+                setInterval(() => {
+                    mm.getSoundManager().Update();
+                    mm.Update();
+                }, 55);
+                window.once = () => {
+                    mm.getSoundManager().Update();
+                    mm.Update();
+                };
+            }
+        };
+        </script>
+        <script type="module">
+            import MNGPlayerSys from './mngplayer-sys.js';
+            window.sys = await MNGPlayerSys();
+            sys.FS.mkdir("/home/web_user/music/");
+            let data = await fetch("DS_Music.mng").then(resp => resp.arrayBuffer()).then(arrayBuffer => new Uint8Array(arrayBuffer));
+            sys.FS.writeFile("/home/web_user/music/music.mng", data);
+            let mm = new sys.MusicManager();
+            mm.LoadScrambled();
+            mm.BeginTrack("StringsFull");
+            mm.Play();
+            setInterval(() => {
+                    mm.getSoundManager().Update();
+                    mm.Update();
+            }, 50);
+        </script>
+    </head>
+    <body>
+
+    </body>
+</html>
