@@ -21,8 +21,10 @@
 #include <emscripten.h>
 WebAudioBuffer::WebAudioBuffer(char *bytes, DWORD numBytes) {
 	this->index = EM_ASM_INT({
+		console.log('Creating new WebAudioBuffer', $0, $1);
 		let index = SoundlibWebAudio.buffers.length;
-		let audioBufferPromise = bytes ? SoundlibWebAudio.audioContext.decodeAudioData(Module.HEAPU8.slice($0, $1).buffer) : Promise.resolve(null);
+		console.log('Data to decode:',Module.HEAPU8.slice($0, $0+$1));
+		let audioBufferPromise = $0 ? SoundlibWebAudio.audioContext.decodeAudioData(Module.HEAPU8.slice($0, $0+$1).buffer) : Promise.resolve(null);
 		let gainNode = new GainNode(SoundlibWebAudio.audioContext);
 		//let panNode = new StereoPannerNode(SoundlibWebAudio.audioContext);
 		let splitter = new ChannelSplitterNode(SoundlibWebAudio.audioContext, {numberOfChannels: 2});
@@ -52,6 +54,7 @@ WebAudioBuffer::WebAudioBuffer(char *bytes, DWORD numBytes) {
 void WebAudioBuffer::Play(bool loop) {
 	EM_ASM({
 		let buffer = SoundlibWebAudio.buffers[$0];
+		buffer.playing = true;
 		buffer.audioBufferPromise = (async function() {
 			let audioBuffer = await buffer.audioBufferPromise;
 			if(buffer.audioBufferNode) {
@@ -64,7 +67,7 @@ void WebAudioBuffer::Play(bool loop) {
 				buffer.playing = false;
 			});
 			buffer.audioBufferNode.buffer = audioBuffer;
-			buffer.audioBufferNode.loop = !!loop;
+			buffer.audioBufferNode.loop = !!$1;
 			buffer.audioBufferNode.connect(buffer.gainNode);
 			buffer.audioBufferNode.start();
 			return audioBuffer;
@@ -267,8 +270,10 @@ SoundManager::~SoundManager()
 
 CachedSound *SoundManager::OpenSound(DWORD wave)
 {
+	std::cerr << "Beginning of OpenSound\n";
 	if (!sound_initialised)
 	{
+		std::cerr << "sound not initialised!\n";
 		return (NULL);
 	}
 
@@ -280,16 +285,19 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 	int offset, size;
 	if (munged)
 		{
+		std::cerr << "Munged file.\n";
 		try
 		{
 			char buf[_MAX_PATH] = "/home/web_user/music/";
 			std::string path(buf);
 			//path+="Music.mng";
 			path += mungeFile;
+			std::cerr << "Trying to open path " << path << "\n";
 			file.Open(path);
 		
 			if(!file.Valid())
 			{
+				std::cerr << "Munged file invalid!\n";
 				return NULL;
 			}
 		}
@@ -300,6 +308,8 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 			return NULL;
 
 		}
+
+		std::cerr << "File loaded, going to read and seek some stuff\n";
 
 
 		// Calculate the index into the file
@@ -322,6 +332,8 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 
 		// Now point straight to the start of the wave
 		file.Seek(offset,File::Start);
+
+		std::cerr << "Seek'd\n";
 		}
 	else
 	{
@@ -329,13 +341,15 @@ CachedSound *SoundManager::OpenSound(DWORD wave)
 		return NULL;
 	}
 
+	std::cerr << "About to create .wav buffer\n";
 	int wav_size = size+16;
 	char *wav_data = new char[wav_size];
-	strncpy(wav_data, "RIFF\x00\x00\x00\x00WAVEfmt ", 16);
+	memcpy(wav_data, "RIFF\x00\x00\x00\x00WAVEfmt ", 16);
 	wav_data[7] = ((wav_size-8) >> 24) & 0xFF;
 	wav_data[6] = ((wav_size-8) >> 16) & 0xFF;
 	wav_data[5] = ((wav_size-8) >> 8) & 0xFF;
 	wav_data[4] = ((wav_size-8)) & 0xFF;
+	std::cerr << "Created .wav buffer size " << wav_size << "\n";
 
 	file.Read(wav_data+16, size);
 
@@ -793,6 +807,8 @@ SOUNDERROR SoundManager::RemoveFromCache(CachedSound* index)
 SOUNDERROR SoundManager::MakeRoomInCache(int size)
 {
 	// Is sound too big for cache?
+
+	return NO_SOUND_ERROR;
 	
 	if (maximum_size<size)
 	{
@@ -855,7 +871,7 @@ int SoundManager::GetWaveSize(DWORD wave)
 		File munged;
 		try
 		{
-			char buf[_MAX_PATH] = "/home/web_user/music";
+			char buf[_MAX_PATH] = "/home/web_user/music/";
 			std::string path(buf);
 			//path+="Music.mng";
 			path += mungeFile;
@@ -882,7 +898,7 @@ int SoundManager::GetWaveSize(DWORD wave)
 		catch(File::FileException& e)
 			{
 			//ErrorMessageHandler::Show(e, std::string("SoundLib::GetWaveSize"));
-			std::cerr << "SoundLib::GetWaveSize\n" << e.what() << "\n";
+			std::cerr << "SoundLib::GetWaveSize\t" << e.what() << "\n";
 			return (0);
 			}
 		}

@@ -20,6 +20,7 @@ MusicManager *initMusicManager() {
 
 EMSCRIPTEN_BINDINGS(mngplayer) {
     class_<SoundManager>("SoundManager")
+        .function("Update", &SoundManager::Update)
         ;
     class_<MusicManager>("MusicManager")
         .constructor(&initMusicManager)
