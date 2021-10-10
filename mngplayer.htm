@@ -12,7 +12,7 @@
             window.player = player;
 
             async function loadMusic(file) {
-                render(html`Loading...`, document.body)
+                render(html`Loading...`, document.body);
                 await player.load(file);
                 let tracks = player.getTrackNames();
                 player.play();
