@@ -22,11 +22,20 @@
                 render(mainUI(tracks), main);
             }
 
+            async function custom() {
+                let file = this.files[0];
+                if(file) {
+                    let url = URL.createObjectURL(file);
+                    await loadMusic(url);
+                }
+            }
+
             let loadButtons = html`
                 <button @click=${() => loadMusic("c1_music.mng")}>Load C1 music</button>
                 <button @click=${() => loadMusic("c2tods.mng")}>Load C2 music</button>
                 <button @click=${() => loadMusic("Music.mng")}>Load C3 music</button>
                 <button @click=${() => loadMusic("DS_Music.mng")}>Load DS music</button>
+                <label for="custom">Load custom .mng: </label><input name="custom" type="file" accept=".mng" @input=${custom}>
             `;
 
             let trackUI = trackName => html`
